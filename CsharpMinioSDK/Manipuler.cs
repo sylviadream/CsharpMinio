@@ -1,8 +1,12 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Model;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+
+
+
 
 namespace CsharpMinioSDK
 {
@@ -15,81 +19,79 @@ namespace CsharpMinioSDK
 
 		public void RunSychoniAsync(AmazonS3Client amazonS3Client)
 		{
-			Task.Run(() => SychoniAsync(amazonS3Client)).GetAwaiter().GetResult();
+			//Task.Run(() => SychoniAsync(amazonS3Client)).GetAwaiter().GetResult();
 		}
 
-		public async Task SychoniAsync(AmazonS3Client amazonS3Client)
+		public static async Task SychoniAsync(AmazonS3Client amazonS3Client, List<Task> tasks)
 		{
 
 
 			// amazonS3Client.ExceptionEvent += OnAmazonS3Exception;
-
+			
 			var listBucketResponse = await amazonS3Client.ListBucketsAsync();
-
+		
 			foreach (var bucket in listBucketResponse.Buckets)
 			{
 				Console.Out.WriteLine("bucket '" + bucket.BucketName + "' created at " + bucket.CreationDate);
 			}
+			Console.WriteLine("Input filepath exemple: D:\\\\testLocal\\\\");
+			string dic = Console.ReadLine();    //"D:\\testLocal\\";	
+
+
 			if (listBucketResponse.Buckets.Count > 0)
 			{
 				var bucketName = listBucketResponse.Buckets[0].BucketName;
 
 				var listObjectsResponse = await amazonS3Client.ListObjectsAsync(bucketName);
-
-				string dic = "D:\\testLocal\\";
-				//Console.WriteLine("Input filepath");
-				//string dic = Console.ReadLine();
+				DirectoryInfo TheFolder = new DirectoryInfo(dic);
+				foreach (FileInfo FileLocal in TheFolder.GetFiles())
+				{
+					if (Manipuler.ExistsBucket(FileLocal.Name, listObjectsResponse, amazonS3Client) == false)
+					{
+						await GestionFiles.UpLoad(bucketName,amazonS3Client, dic, FileLocal.Name);
+					}
+				}
 
 
 				foreach (S3Object obj in listObjectsResponse.S3Objects)
 				{
 					string pathTemps = dic + obj.Key;
+					FileInfo fi = new FileInfo(pathTemps);
+
 					if (File.Exists(pathTemps))
 					{
-
-
-						FileInfo fi = new FileInfo(pathTemps);
-
-						if (obj.Size != fi.Length)
+					    if (obj.Size != fi.Length)
 						{
-							Console.WriteLine(obj.Size.ToString() + "///" + fi.Length.ToString());
-							DeleteObjectRequest requestDelete = new DeleteObjectRequest
-							{
-								BucketName = bucketName,
-								Key = obj.Key,
-							};
-							await amazonS3Client.DeleteObjectAsync(requestDelete);
-
-							PutObjectRequest requestUpdate = new PutObjectRequest();
-							var fileStream = new FileStream(pathTemps, FileMode.Open, FileAccess.Read);
-							requestUpdate.InputStream = fileStream;
-							requestUpdate.BucketName = bucketName;
-							requestUpdate.Key = fi.Name;
-							requestUpdate.CannedACL = S3CannedACL.PublicRead;
-							await amazonS3Client.PutObjectAsync(requestUpdate);
-
+						           
+								await GestionFiles.synchronisation(obj, bucketName, amazonS3Client, pathTemps, fi);
 						}
 					}
 					else
-					{
-
-						DeleteObjectRequest request = new DeleteObjectRequest
-						{
-							BucketName = bucketName,
-							Key = obj.Key,
-						};
-
-						await amazonS3Client.DeleteObjectAsync(request);
+				    {
+					    await GestionFiles.supprime(obj, bucketName,amazonS3Client);
 					};
-
-
-
-
-					Console.Out.WriteLine(obj.ToString());
 				}
-				Console.ReadKey();
+				
+		
+
 			}
 
+
+		}
+
+		
+		private static bool ExistsBucket(string fileKey, ListObjectsResponse listObjectsResponse, AmazonS3Client amazonS3Client)
+		{
+
+			foreach (S3Object obj in listObjectsResponse.S3Objects)
+			{
+				if (obj.Key == fileKey)
+				{
+					return true;
+				}
+				
+			}
+			return false;
 
 		}
 		public static Boolean CompaereFile(double sizeServer, double sizeLocal)
