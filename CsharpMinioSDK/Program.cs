@@ -8,50 +8,56 @@ namespace CsharpMinioSDK
 {
 	class Program
 	{
+		private static List<Task> tasks = new List<Task>();
 
-		static void Main(string[] args)
+		public static void Main(string[] args)
 		{
-			List<Task> tasks = new List<Task>();
-			//var minio = new MinioClient(endpoint, accessKey, secretKey).WithSSL();
+
+			Program p=new Program();
+			Task.Run(p.Gestiontasks).GetAwaiter().GetResult();
+
+		}
+		
+		public  async Task Gestiontasks()
+		{
+			var cts = new CancellationTokenSource();
+			var ct = cts.Token;
 			Connection connection = Connection.GetInstanceConnection();
 			AmazonS3Client amazonS3Client = connection.GetAmazonS3Client();
-			//Manipuler SychoniseFiles = new Manipuler();
-			Task.Run(() => Manipuler.SychoniAsync(amazonS3Client, tasks)).GetAwaiter().GetResult();
-		
-				GestionTaskScheduler gs = new GestionTaskScheduler();
-				IEnumerable<Task> scheduledTasksList = gs.GetScheduledTasksList();
-				foreach (Task task in scheduledTasksList)
-				{
-					Console.WriteLine("{0,10} {1,20} ", task.Id, task.Status);
-				}
 
-				Console.ReadKey();
+			var listBucketResponse = await amazonS3Client.ListBucketsAsync();
+
+			foreach (var bucket in listBucketResponse.Buckets)
+			{
+				Console.Out.WriteLine("bucket '" + bucket.BucketName + "' created at " + bucket.CreationDate);
+			}
+
+			Console.WriteLine("Input filepath exemple: D:\\\\testLocal\\\\");
+			string dic = Console.ReadLine();    //"D:\\testLocal\\";
+			Console.WriteLine("Input BucketName");
+			string bucketName = Console.ReadLine();
+			var task1 = Manipuler.SychoniAsync(amazonS3Client, dic, bucketName);
+			
+			tasks.Add(task1);
+
+			Console.WriteLine("Input filepath exemple: D:\\\\testLocal\\\\");
+			string dic2 = Console.ReadLine();    //"D:\\testLocal\\";
+			Console.WriteLine("Input BucketName");
+			string bucketName2 = Console.ReadLine();
+			var task2 = Task.Run(() =>  Manipuler.SychoniAsync(amazonS3Client, dic2, bucketName2),ct);
+		
+			tasks.Add(task2);
+			cts.Cancel();
+			foreach (Task task in tasks)
+			{
+				Console.WriteLine("{0,10} {1,20} ", task.Id, task.Status);
+			}
+	
+			Console.ReadKey();
 		}
 	}
 
 }
 
 
-	/*for (int i = 1; i <= 10; i++)
-			{
-				ThreadPool.QueueUserWorkItem(new WaitCallback((obj) =>
-			{
-
-				Console.WriteLine($"task numero {obj}");
-			}), i);*/
-		//GetScheduledTasks();
-
-			//System.Threading.Tasks.TaskScheduler;
-			//ThreadPool.QueueUserWorkItem(ThreadProc);
-			//.RunSychoniAsync(amazonS3Client);
-			//connection.SychoniFiles();
-
-		   
-
-
-	           
-
-
-
-// Initialize the client with access credentials.
 

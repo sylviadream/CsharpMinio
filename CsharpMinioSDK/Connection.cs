@@ -14,8 +14,8 @@ namespace CsharpMinioSDK
 	{
 		private static AmazonS3Client _amazonS3Client = null;
 		public static Connection connectionInstance = null;
-		private const string accessKey = "3MI9MK14I0HG82FEDLGG";
-		private const string secretKey = "Nur5wN2IykOshVOdE7wvAPWvPt+VLXl1NAvYV+iN";
+		private const string accessKey = "IIH7HW7X2KDMU1BC1629";
+		private const string secretKey = "GhIbXcQKZNAv+J21il+GOjvgT2Z2o+Lq2DfnX2ip";
 
 
 		private Connection()

@@ -1,8 +1,9 @@
 ﻿using Amazon.S3;
 using Amazon.S3.Model;
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -17,30 +18,13 @@ namespace CsharpMinioSDK
 
 		}
 
-		public void RunSychoniAsync(AmazonS3Client amazonS3Client)
+		public static async Task SychoniAsync(AmazonS3Client amazonS3Client, string dic, string bucketName)
 		{
-			//Task.Run(() => SychoniAsync(amazonS3Client)).GetAwaiter().GetResult();
-		}
-
-		public static async Task SychoniAsync(AmazonS3Client amazonS3Client, List<Task> tasks)
-		{
-
-
 			// amazonS3Client.ExceptionEvent += OnAmazonS3Exception;
-			
 			var listBucketResponse = await amazonS3Client.ListBucketsAsync();
-		
-			foreach (var bucket in listBucketResponse.Buckets)
-			{
-				Console.Out.WriteLine("bucket '" + bucket.BucketName + "' created at " + bucket.CreationDate);
-			}
-			Console.WriteLine("Input filepath exemple: D:\\\\testLocal\\\\");
-			string dic = Console.ReadLine();    //"D:\\testLocal\\";	
-
 
 			if (listBucketResponse.Buckets.Count > 0)
 			{
-				var bucketName = listBucketResponse.Buckets[0].BucketName;
 
 				var listObjectsResponse = await amazonS3Client.ListObjectsAsync(bucketName);
 				DirectoryInfo TheFolder = new DirectoryInfo(dic);
@@ -48,7 +32,7 @@ namespace CsharpMinioSDK
 				{
 					if (Manipuler.ExistsBucket(FileLocal.Name, listObjectsResponse, amazonS3Client) == false)
 					{
-						await GestionFiles.UpLoad(bucketName,amazonS3Client, dic, FileLocal.Name);
+						await GestionFiles.UpLoad(bucketName, amazonS3Client, dic, FileLocal.Name);
 					}
 				}
 
@@ -60,25 +44,38 @@ namespace CsharpMinioSDK
 
 					if (File.Exists(pathTemps))
 					{
-					    if (obj.Size != fi.Length)
+
+						CompareMd5 Md5FileLocal = new CompareMd5();
+						string Md5Local = Md5FileLocal.GetMD5HashFromFile(pathTemps);
+						//string Digest = ETag != null ? obj.ETag.Replace("\"", "").ToLower() : "";
+
+						GetObjectRequest request = new GetObjectRequest();
+						request.BucketName = bucketName;
+						request.Key = obj.Key;
+						GetObjectResponse response = await amazonS3Client.GetObjectAsync(request);
+
+
+
+						CompareMd5 compareMd5 = new CompareMd5();
+						Boolean result = compareMd5.CompareObjFile(response, pathTemps);
+						if (result == true)
 						{
-						           
-								await GestionFiles.synchronisation(obj, bucketName, amazonS3Client, pathTemps, fi);
+
+							await GestionFiles.synchronisation(obj, bucketName, amazonS3Client, pathTemps, fi);
+						}
+
+						else
+						{
+							await GestionFiles.supprime(obj, bucketName, amazonS3Client);
 						}
 					}
-					else
-				    {
-					    await GestionFiles.supprime(obj, bucketName,amazonS3Client);
-					};
+
+
+
 				}
-				
-		
 
 			}
-
-
 		}
-
 		
 		private static bool ExistsBucket(string fileKey, ListObjectsResponse listObjectsResponse, AmazonS3Client amazonS3Client)
 		{
@@ -92,18 +89,6 @@ namespace CsharpMinioSDK
 				
 			}
 			return false;
-
-		}
-		public static Boolean CompaereFile(double sizeServer, double sizeLocal)
-		{
-			if (sizeServer == sizeLocal)
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
 
 		}
 
